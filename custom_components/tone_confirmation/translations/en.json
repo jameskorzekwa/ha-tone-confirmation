@@ -1,0 +1,34 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Only one Tone Confirmation Conversation configuration is allowed."
+    },
+    "step": {
+      "user": {
+        "description": "Choose the conversation agent to wrap and the script that plays the confirmation tone.",
+        "data": {
+          "target_agent": "Conversation agent",
+          "confirmation_script": "Confirmation script"
+        },
+        "data_description": {
+          "target_agent": "The underlying agent that processes requests.",
+          "confirmation_script": "A script with a required satellite_id field that plays the tone."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "target_agent": "Conversation agent",
+          "confirmation_script": "Confirmation script"
+        },
+        "data_description": {
+          "target_agent": "The underlying agent that processes requests.",
+          "confirmation_script": "A script with a required satellite_id field that plays the tone."
+        }
+      }
+    }
+  }
+}
