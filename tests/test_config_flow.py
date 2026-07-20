@@ -8,7 +8,6 @@ from homeassistant.setup import async_setup_component
 from custom_components.tone_confirmation.const import (
     CONF_CONFIRMATION_SCRIPT,
     CONF_TARGET_AGENT,
-    DEFAULT_CONFIRMATION_SCRIPT,
     DEFAULT_TARGET_AGENT,
     DOMAIN,
 )
@@ -27,7 +26,6 @@ async def test_user_flow_and_options_reload(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
-            CONF_CONFIRMATION_SCRIPT: DEFAULT_CONFIRMATION_SCRIPT,
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -41,17 +39,14 @@ async def test_user_flow_and_options_reload(hass: HomeAssistant) -> None:
         options["flow_id"],
         {
             CONF_TARGET_AGENT: "conversation.test_agent",
-            CONF_CONFIRMATION_SCRIPT: "script.test_tone",
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options == {
         CONF_TARGET_AGENT: "conversation.test_agent",
-        CONF_CONFIRMATION_SCRIPT: "script.test_tone",
     }
     assert entry.runtime_data._target_agent == "conversation.test_agent"
-    assert entry.runtime_data._script_service == "test_tone"
 
 
 async def test_yaml_is_imported_once(hass: HomeAssistant) -> None:
@@ -74,7 +69,6 @@ async def test_yaml_is_imported_once(hass: HomeAssistant) -> None:
     assert entries[0].source == SOURCE_IMPORT
     assert entries[0].options == {
         CONF_TARGET_AGENT: "conversation.legacy_agent",
-        CONF_CONFIRMATION_SCRIPT: "script.legacy_tone",
     }
 
     result = await hass.config_entries.flow.async_init(

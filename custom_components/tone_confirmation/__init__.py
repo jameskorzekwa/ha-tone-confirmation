@@ -1,6 +1,8 @@
 """Conversation agent that replaces successful action speech with a tone."""
 
+import asyncio
 from dataclasses import replace
+from pathlib import Path
 from typing import Literal
 
 import voluptuous as vol
@@ -10,22 +12,29 @@ from homeassistant.components.conversation.const import (
     DATA_COMPONENT,
     ConversationEntityFeature,
 )
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import MATCH_ALL
-from homeassistant.core import HomeAssistant, split_entity_id
+from homeassistant.const import ATTR_ENTITY_ID, MATCH_ALL
+from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
+    ASSIST_SATELLITE_DOMAIN,
     CONF_CONFIRMATION_SCRIPT,
     CONF_TARGET_AGENT,
-    DEFAULT_CONFIRMATION_SCRIPT,
     DEFAULT_TARGET_AGENT,
     DOMAIN,
+    TONE_FILENAME,
+    TONE_URL,
+    TONE_WAIT_TIMEOUT,
 )
+
+TONE_PATH = Path(__file__).parent / "media" / TONE_FILENAME
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -34,9 +43,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONF_TARGET_AGENT, default=DEFAULT_TARGET_AGENT
                 ): cv.entity_id,
-                vol.Optional(
-                    CONF_CONFIRMATION_SCRIPT, default=DEFAULT_CONFIRMATION_SCRIPT
-                ): cv.entity_id,
+                vol.Optional(CONF_CONFIRMATION_SCRIPT): cv.entity_id,
             }
         )
     },
@@ -51,10 +58,9 @@ class ToneConfirmationAgent(conversation.ConversationEntity):
     _attr_unique_id = "tone_confirmation_conversation"
     _attr_supported_features = ConversationEntityFeature.CONTROL
 
-    def __init__(self, target_agent: str, confirmation_script: str) -> None:
+    def __init__(self, target_agent: str) -> None:
         """Initialize the wrapper."""
         self._target_agent = target_agent
-        self._script_domain, self._script_service = split_entity_id(confirmation_script)
 
     @property
     def supported_languages(self) -> Literal["*"]:
@@ -92,19 +98,54 @@ class ToneConfirmationAgent(conversation.ConversationEntity):
             and user_input.satellite_id
         ):
             response.async_set_speech("")
-            await self.hass.services.async_call(
-                self._script_domain,
-                self._script_service,
-                {"satellite_id": user_input.satellite_id},
-                blocking=False,
-                context=user_input.context,
+            self.hass.async_create_background_task(
+                _async_play_confirmation_tone(
+                    self.hass, user_input.satellite_id, user_input.context
+                ),
+                "play bundled Assist confirmation tone",
             )
 
         return result
 
 
+async def _async_play_confirmation_tone(
+    hass: HomeAssistant, satellite_id: str, context: Context
+) -> None:
+    """Wait for the satellite to finish its pipeline, then play the tone."""
+    state_changed = asyncio.Event()
+    remove_listener = async_track_state_change_event(
+        hass, [satellite_id], lambda _: state_changed.set()
+    )
+    try:
+        async with asyncio.timeout(TONE_WAIT_TIMEOUT):
+            while (
+                satellite_state := hass.states.get(satellite_id)
+            ) is None or satellite_state.state != "idle":
+                await state_changed.wait()
+                state_changed.clear()
+    except TimeoutError:
+        return
+    finally:
+        remove_listener()
+
+    await hass.services.async_call(
+        ASSIST_SATELLITE_DOMAIN,
+        "announce",
+        {
+            ATTR_ENTITY_ID: satellite_id,
+            "media_id": TONE_URL,
+            "preannounce": False,
+        },
+        blocking=False,
+        context=context,
+    )
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Import legacy YAML configuration."""
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(TONE_URL, str(TONE_PATH))]
+    )
     if DOMAIN in config and not hass.config_entries.async_entries(DOMAIN):
         hass.async_create_task(
             hass.config_entries.flow.async_init(
@@ -120,16 +161,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the tone-confirming conversation entity from a config entry."""
     options = {
         CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
-        CONF_CONFIRMATION_SCRIPT: DEFAULT_CONFIRMATION_SCRIPT,
         **entry.options,
     }
     component: EntityComponent[conversation.ConversationEntity] = hass.data[
         DATA_COMPONENT
     ]
-    agent = ToneConfirmationAgent(
-        options[CONF_TARGET_AGENT],
-        options[CONF_CONFIRMATION_SCRIPT],
-    )
+    agent = ToneConfirmationAgent(options[CONF_TARGET_AGENT])
     await component.async_add_entities([agent])
     entry.runtime_data = agent
     return True
@@ -138,4 +175,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a tone confirmation config entry."""
     await entry.runtime_data.async_remove()
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Remove the external script option from version 1 entries."""
+    if entry.version > 2:
+        return False
+
+    if entry.version == 1:
+        options = dict(entry.options)
+        options.pop(CONF_CONFIRMATION_SCRIPT, None)
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
+
     return True

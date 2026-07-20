@@ -9,13 +9,15 @@ from custom_components.tone_confirmation import DOMAIN, ToneConfirmationAgent
 from custom_components.tone_confirmation.const import (
     CONF_CONFIRMATION_SCRIPT,
     CONF_TARGET_AGENT,
-    DEFAULT_CONFIRMATION_SCRIPT,
     DEFAULT_TARGET_AGENT,
+    TONE_URL,
 )
 
 
-async def test_setup_creates_conversation_entity(hass: HomeAssistant) -> None:
-    """Set up the integration and register its conversation entity."""
+async def test_setup_migrates_entry_and_serves_tone(
+    hass: HomeAssistant, hass_client
+) -> None:
+    """Migrate setup, register the conversation entity, and serve the tone."""
     assert await async_setup_component(hass, "homeassistant", {})
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -23,7 +25,7 @@ async def test_setup_creates_conversation_entity(hass: HomeAssistant) -> None:
         data={},
         options={
             CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
-            CONF_CONFIRMATION_SCRIPT: DEFAULT_CONFIRMATION_SCRIPT,
+            CONF_CONFIRMATION_SCRIPT: "script.voice_command_acknowledge",
         },
         source="user",
         version=1,
@@ -34,10 +36,19 @@ async def test_setup_creates_conversation_entity(hass: HomeAssistant) -> None:
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
+    assert entry.version == 2
+    assert entry.options == {CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT}
+
     state = hass.states.get("conversation.tone_confirmation_conversation")
     assert state is not None
     assert state.attributes["supported_features"] == 1
     assert isinstance(entry.runtime_data, ToneConfirmationAgent)
+
+    client = await hass_client()
+    response = await client.get(TONE_URL)
+    assert response.status == 200
+    assert response.content_type == "audio/x-wav"
+    assert (await response.read()).startswith(b"RIFF")
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

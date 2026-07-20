@@ -1,5 +1,6 @@
 """Conversation agent behavior tests."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,10 +11,11 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import intent
 
 from custom_components.tone_confirmation import (
-    DEFAULT_CONFIRMATION_SCRIPT,
     DEFAULT_TARGET_AGENT,
     ToneConfirmationAgent,
+    _async_play_confirmation_tone,
 )
+from custom_components.tone_confirmation.const import TONE_URL
 
 
 class FakeGoogleAgent(conversation.ConversationEntity):
@@ -71,7 +73,7 @@ def _result(*, success: bool, failed: bool = False):
 @pytest.fixture
 def agent(hass: HomeAssistant) -> ToneConfirmationAgent:
     """Create a wrapper agent attached to Home Assistant."""
-    wrapper = ToneConfirmationAgent(DEFAULT_TARGET_AGENT, DEFAULT_CONFIRMATION_SCRIPT)
+    wrapper = ToneConfirmationAgent(DEFAULT_TARGET_AGENT)
     wrapper.hass = hass
     return wrapper
 
@@ -94,6 +96,8 @@ async def _call_agent(
 
     target._async_handle_message = handle_message
     service_call = AsyncMock()
+    if satellite_id:
+        hass.states.async_set(satellite_id, "idle")
 
     with (
         patch(
@@ -105,6 +109,7 @@ async def _call_agent(
         returned = await agent._async_handle_message(
             _user_input(satellite_id=satellite_id), chat_log
         )
+        await hass.async_block_till_done()
 
     assert chat_log.delta_listener is original_listener
     return returned, service_call
@@ -119,9 +124,13 @@ async def test_success_clears_speech_and_plays_one_tone(
     assert returned.response.speech["plain"]["speech"] == ""
     service_call.assert_awaited_once()
     assert service_call.await_args.args == (
-        "script",
-        "voice_command_acknowledge",
-        {"satellite_id": "assist_satellite.test"},
+        "assist_satellite",
+        "announce",
+        {
+            "entity_id": "assist_satellite.test",
+            "media_id": TONE_URL,
+            "preannounce": False,
+        },
     )
     assert service_call.await_args.kwargs["blocking"] is False
     assert isinstance(service_call.await_args.kwargs["context"], Context)
@@ -137,6 +146,27 @@ async def test_success_without_satellite_preserves_speech(
 
     assert returned.response.speech["plain"]["speech"] == "OK."
     service_call.assert_not_awaited()
+
+
+async def test_tone_waits_until_satellite_is_idle(hass: HomeAssistant) -> None:
+    """Do not announce while the originating satellite is processing."""
+    satellite_id = "assist_satellite.test"
+    hass.states.async_set(satellite_id, "processing")
+    service_call = AsyncMock()
+    context = Context()
+
+    with patch("homeassistant.core.ServiceRegistry.async_call", service_call):
+        task = asyncio.create_task(
+            _async_play_confirmation_tone(hass, satellite_id, context)
+        )
+        await asyncio.sleep(0)
+        service_call.assert_not_awaited()
+
+        hass.states.async_set(satellite_id, "idle")
+        await task
+
+    service_call.assert_awaited_once()
+    assert service_call.await_args.kwargs["context"] is context
 
 
 @pytest.mark.parametrize(
