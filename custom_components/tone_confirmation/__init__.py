@@ -26,9 +26,12 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (
     ASSIST_SATELLITE_DOMAIN,
     CONF_CONFIRMATION_SCRIPT,
+    CONF_LEGACY_ENTITY_ID,
     CONF_TARGET_AGENT,
     DEFAULT_TARGET_AGENT,
     DOMAIN,
+    LEGACY_UNIQUE_ID,
+    NAME,
     TONE_FILENAME,
     TONE_URL,
     TONE_WAIT_TIMEOUT,
@@ -54,13 +57,13 @@ CONFIG_SCHEMA = vol.Schema(
 class ToneConfirmationAgent(conversation.ConversationEntity):
     """Delegate to Google and suppress speech after successful actions."""
 
-    _attr_name = "Tone Confirmation Conversation"
-    _attr_unique_id = "tone_confirmation_conversation"
     _attr_supported_features = ConversationEntityFeature.CONTROL
 
-    def __init__(self, target_agent: str) -> None:
+    def __init__(self, target_agent: str, name: str, unique_id: str) -> None:
         """Initialize the wrapper."""
         self._target_agent = target_agent
+        self._attr_name = name
+        self._attr_unique_id = unique_id
 
     @property
     def supported_languages(self) -> Literal["*"]:
@@ -159,14 +162,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the tone-confirming conversation entity from a config entry."""
-    options = {
-        CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
-        **entry.options,
-    }
+    legacy_entity = entry.data.get(CONF_LEGACY_ENTITY_ID, False)
     component: EntityComponent[conversation.ConversationEntity] = hass.data[
         DATA_COMPONENT
     ]
-    agent = ToneConfirmationAgent(options[CONF_TARGET_AGENT])
+    agent = ToneConfirmationAgent(
+        entry.data[CONF_TARGET_AGENT],
+        NAME if legacy_entity else entry.title,
+        LEGACY_UNIQUE_ID if legacy_entity else entry.entry_id,
+    )
     await component.async_add_entities([agent])
     entry.runtime_data = agent
     return True
@@ -179,13 +183,30 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Remove the external script option from version 1 entries."""
-    if entry.version > 2:
+    """Migrate singleton entries to the multi-entry data format."""
+    if entry.version > 3:
         return False
 
-    if entry.version == 1:
+    if entry.version <= 2:
         options = dict(entry.options)
         options.pop(CONF_CONFIRMATION_SCRIPT, None)
-        hass.config_entries.async_update_entry(entry, options=options, version=2)
+        target_agent = options.pop(CONF_TARGET_AGENT, DEFAULT_TARGET_AGENT)
+        target_state = hass.states.get(target_agent)
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_TARGET_AGENT: target_agent,
+                CONF_LEGACY_ENTITY_ID: True,
+            },
+            options=options,
+            title=(
+                f"Tone Confirmation: {target_state.name}"
+                if target_state
+                else entry.title
+            ),
+            unique_id=target_agent,
+            version=3,
+        )
 
     return True

@@ -40,6 +40,11 @@ The underlying agent must already be configured and available. You can change
 the selection later from the integration's **Configure** button. The short
 two-note confirmation tone is included with the integration.
 
+To wrap another conversation agent, choose **Add integration** and add Tone
+Confirmation Conversation again. Each configured target creates a separate
+conversation entity that can be selected by a different Assist pipeline. The
+same target cannot be configured twice.
+
 ### 3. Verify the result
 
 Ask an informational question first; its answer should still be spoken. Then
@@ -61,6 +66,10 @@ Version 1.2 replaces the external confirmation script and media file with a
 bundled tone. Existing configuration entries migrate automatically. The old
 confirmation script and `/config/media/voice/acknowledge.mp3` are no longer
 used and may be removed after verifying the upgrade.
+
+Version 1.3 allows multiple configuration entries so different Assist pipelines
+can wrap different conversation agents. Existing entries and entity IDs migrate
+automatically.
 
 ## Behavior
 
