@@ -10,6 +10,7 @@ from homeassistant.components.conversation.const import (
     DATA_COMPONENT,
     ConversationEntityFeature,
 )
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant, split_entity_id
 from homeassistant.exceptions import HomeAssistantError
@@ -18,11 +19,13 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.typing import ConfigType
 
-DOMAIN = "tone_confirmation"
-CONF_TARGET_AGENT = "target_agent"
-CONF_CONFIRMATION_SCRIPT = "confirmation_script"
-DEFAULT_TARGET_AGENT = "conversation.google_generative_ai"
-DEFAULT_CONFIRMATION_SCRIPT = "script.voice_command_acknowledge"
+from .const import (
+    CONF_CONFIRMATION_SCRIPT,
+    CONF_TARGET_AGENT,
+    DEFAULT_CONFIRMATION_SCRIPT,
+    DEFAULT_TARGET_AGENT,
+    DOMAIN,
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -101,17 +104,38 @@ class ToneConfirmationAgent(conversation.ConversationEntity):
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the tone-confirming conversation entity."""
-    domain_config = config[DOMAIN]
+    """Import legacy YAML configuration."""
+    if DOMAIN in config and not hass.config_entries.async_entries(DOMAIN):
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": SOURCE_IMPORT},
+                data=config[DOMAIN],
+            )
+        )
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up the tone-confirming conversation entity from a config entry."""
+    options = {
+        CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
+        CONF_CONFIRMATION_SCRIPT: DEFAULT_CONFIRMATION_SCRIPT,
+        **entry.options,
+    }
     component: EntityComponent[conversation.ConversationEntity] = hass.data[
         DATA_COMPONENT
     ]
-    await component.async_add_entities(
-        [
-            ToneConfirmationAgent(
-                domain_config[CONF_TARGET_AGENT],
-                domain_config[CONF_CONFIRMATION_SCRIPT],
-            )
-        ]
+    agent = ToneConfirmationAgent(
+        options[CONF_TARGET_AGENT],
+        options[CONF_CONFIRMATION_SCRIPT],
     )
+    await component.async_add_entities([agent])
+    entry.runtime_data = agent
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a tone confirmation config entry."""
+    await entry.runtime_data.async_remove()
     return True
