@@ -8,6 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.tone_confirmation import DOMAIN, ToneConfirmationAgent
 from custom_components.tone_confirmation.const import (
     CONF_CONFIRMATION_SCRIPT,
+    CONF_LEGACY_ENTITY_ID,
     CONF_TARGET_AGENT,
     DEFAULT_TARGET_AGENT,
     TONE_URL,
@@ -17,8 +18,11 @@ from custom_components.tone_confirmation.const import (
 async def test_setup_migrates_entry_and_serves_tone(
     hass: HomeAssistant, hass_client
 ) -> None:
-    """Migrate setup, register the conversation entity, and serve the tone."""
+    """Migrate the singleton entry while preserving its conversation entity."""
     assert await async_setup_component(hass, "homeassistant", {})
+    hass.states.async_set(
+        DEFAULT_TARGET_AGENT, "unknown", {"friendly_name": "Google Generative AI"}
+    )
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Tone Confirmation Conversation",
@@ -36,8 +40,14 @@ async def test_setup_migrates_entry_and_serves_tone(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 2
-    assert entry.options == {CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT}
+    assert entry.version == 3
+    assert entry.data == {
+        CONF_TARGET_AGENT: DEFAULT_TARGET_AGENT,
+        CONF_LEGACY_ENTITY_ID: True,
+    }
+    assert entry.options == {}
+    assert entry.unique_id == DEFAULT_TARGET_AGENT
+    assert entry.title == "Tone Confirmation: Google Generative AI"
 
     state = hass.states.get("conversation.tone_confirmation_conversation")
     assert state is not None

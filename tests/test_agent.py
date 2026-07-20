@@ -73,7 +73,11 @@ def _result(*, success: bool, failed: bool = False):
 @pytest.fixture
 def agent(hass: HomeAssistant) -> ToneConfirmationAgent:
     """Create a wrapper agent attached to Home Assistant."""
-    wrapper = ToneConfirmationAgent(DEFAULT_TARGET_AGENT)
+    wrapper = ToneConfirmationAgent(
+        DEFAULT_TARGET_AGENT,
+        "Tone Confirmation: Google",
+        "test-unique-id",
+    )
     wrapper.hass = hass
     return wrapper
 

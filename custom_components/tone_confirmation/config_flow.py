@@ -9,12 +9,15 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlowWithReload,
+)
+from homeassistant.config_entries import (
+    OptionsFlow as HomeAssistantOptionsFlow,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (
+    CONF_LEGACY_ENTITY_ID,
     CONF_TARGET_AGENT,
     DEFAULT_TARGET_AGENT,
     DOMAIN,
@@ -35,10 +38,17 @@ def _schema(values: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
+def _entry_title(flow: ConfigFlow | OptionsFlow, target_agent: str) -> str:
+    """Build a readable entry and entity name from the target agent."""
+    target_state = flow.hass.states.get(target_agent)
+    target_name = target_state.name if target_state else target_agent
+    return f"Tone Confirmation: {target_name}"
+
+
 class ToneConfirmationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a Tone Confirmation Conversation config flow."""
 
-    VERSION = 2
+    VERSION = 3
 
     @staticmethod
     @callback
@@ -52,41 +62,61 @@ class ToneConfirmationConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle setup from the integrations UI."""
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
         if user_input is not None:
-            return self.async_create_entry(title=NAME, data={}, options=user_input)
+            target_agent = user_input[CONF_TARGET_AGENT]
+            await self.async_set_unique_id(target_agent)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=_entry_title(self, target_agent), data=user_input
+            )
 
         return self.async_show_form(step_id="user", data_schema=_schema())
 
     async def async_step_import(self, import_data: dict[str, Any]) -> ConfigFlowResult:
         """Import configuration from YAML."""
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
+        target_agent = import_data.get(CONF_TARGET_AGENT, DEFAULT_TARGET_AGENT)
+        await self.async_set_unique_id(target_agent)
+        self._abort_if_unique_id_configured()
         return self.async_create_entry(
             title=NAME,
-            data={},
-            options={
-                CONF_TARGET_AGENT: import_data.get(
-                    CONF_TARGET_AGENT, DEFAULT_TARGET_AGENT
-                ),
+            data={
+                CONF_TARGET_AGENT: target_agent,
+                CONF_LEGACY_ENTITY_ID: True,
             },
         )
 
 
-class OptionsFlow(OptionsFlowWithReload):
+class OptionsFlow(HomeAssistantOptionsFlow):
     """Handle Tone Confirmation Conversation options."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Edit the wrapped conversation agent."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            target_agent = user_input[CONF_TARGET_AGENT]
+            if any(
+                entry.entry_id != self.config_entry.entry_id
+                and entry.data.get(CONF_TARGET_AGENT) == target_agent
+                for entry in self.hass.config_entries.async_entries(DOMAIN)
+            ):
+                errors["base"] = "already_configured"
+            else:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data={
+                        **self.config_entry.data,
+                        CONF_TARGET_AGENT: target_agent,
+                    },
+                    title=_entry_title(self, target_agent),
+                    unique_id=target_agent,
+                )
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                return self.async_create_entry(data={})
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_schema(dict(self.config_entry.options)),
+            data_schema=_schema(user_input or dict(self.config_entry.data)),
+            errors=errors,
         )

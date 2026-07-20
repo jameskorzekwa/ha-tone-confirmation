@@ -1,11 +1,14 @@
 {
   "config": {
     "abort": {
-      "single_instance_allowed": "Only one Tone Confirmation Conversation configuration is allowed."
+      "already_configured": "This conversation agent is already wrapped."
+    },
+    "error": {
+      "already_configured": "This conversation agent is already wrapped by another entry."
     },
     "step": {
       "user": {
-        "description": "Choose the conversation agent to wrap. The integration plays its bundled confirmation tone after successful actions.",
+        "description": "Choose a conversation agent to wrap. Add the integration again to create wrappers for other agents. The integration plays its bundled confirmation tone after successful actions.",
         "data": {
           "target_agent": "Conversation agent"
         },
