@@ -37,8 +37,12 @@ Restart Home Assistant after HACS finishes downloading the integration.
 5. Set **Conversation agent** to **Tone Confirmation Conversation** and save.
 
 The underlying agent must already be configured and available. You can change
-the selection later from the integration's **Configure** button. The short
-two-note confirmation tone is included with the integration.
+the selection later from the integration's **Configure** button. Successful
+actions use Home Assistant's standard Assist acknowledgment tone.
+
+When editing the Assist pipeline, turn off **Prefer handling commands locally**.
+Local intents bypass custom conversation agents, so leaving this option enabled
+causes native spoken confirmations instead of the tone.
 
 To wrap another conversation agent, choose **Add integration** and add Tone
 Confirmation Conversation again. Each configured target creates a separate
@@ -62,14 +66,17 @@ the UI automatically. After updating and restarting Home Assistant once, remove
 the complete `tone_confirmation:` block from `configuration.yaml`; subsequent
 changes are made with the integration's **Configure** button.
 
-Version 1.2 replaces the external confirmation script and media file with a
-bundled tone. Existing configuration entries migrate automatically. The old
-confirmation script and `/config/media/voice/acknowledge.mp3` are no longer
-used and may be removed after verifying the upgrade.
+Version 1.2 replaces the external confirmation script and media file with an
+integration-managed tone. Existing configuration entries migrate automatically.
+The old confirmation script and `/config/media/voice/acknowledge.mp3` are no
+longer used and may be removed after verifying the upgrade.
 
 Version 1.3 allows multiple configuration entries so different Assist pipelines
 can wrap different conversation agents. Existing entries and entity IDs migrate
 automatically.
+
+Version 1.4 uses Home Assistant's built-in Assist acknowledgment sound instead
+of the integration's higher-pitched synthesized tone.
 
 ## Behavior
 
