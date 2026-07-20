@@ -8,7 +8,7 @@
     },
     "step": {
       "user": {
-        "description": "Choose a conversation agent to wrap. Add the integration again to create wrappers for other agents. The integration plays its bundled confirmation tone after successful actions.",
+        "description": "Choose a conversation agent to wrap. Add the integration again to create wrappers for other agents. The integration plays Home Assistant's standard confirmation tone after successful actions.",
         "data": {
           "target_agent": "Conversation agent"
         },

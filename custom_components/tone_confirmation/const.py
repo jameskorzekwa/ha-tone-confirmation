@@ -12,6 +12,6 @@ DEFAULT_TARGET_AGENT = "conversation.google_generative_ai"
 NAME = "Tone Confirmation Conversation"
 LEGACY_UNIQUE_ID = "tone_confirmation_conversation"
 
-TONE_FILENAME = "confirmation.wav"
+TONE_FILENAME = "acknowledge.mp3"
 TONE_URL = f"/api/{DOMAIN}/static/{TONE_FILENAME}"
 TONE_WAIT_TIMEOUT = 3

@@ -57,8 +57,8 @@ async def test_setup_migrates_entry_and_serves_tone(
     client = await hass_client()
     response = await client.get(TONE_URL)
     assert response.status == 200
-    assert response.content_type == "audio/x-wav"
-    assert (await response.read()).startswith(b"RIFF")
+    assert response.content_type == "audio/mpeg"
+    assert await response.read()
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

@@ -5,6 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
+import homeassistant
 import voluptuous as vol
 from homeassistant.components import conversation
 from homeassistant.components.conversation.agent_manager import async_get_agent
@@ -32,12 +33,16 @@ from .const import (
     DOMAIN,
     LEGACY_UNIQUE_ID,
     NAME,
-    TONE_FILENAME,
     TONE_URL,
     TONE_WAIT_TIMEOUT,
 )
 
-TONE_PATH = Path(__file__).parent / "media" / TONE_FILENAME
+TONE_PATH = (
+    Path(homeassistant.__file__).parent
+    / "components"
+    / "assist_pipeline"
+    / "acknowledge.mp3"
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
