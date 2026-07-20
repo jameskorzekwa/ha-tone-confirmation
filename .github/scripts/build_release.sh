@@ -13,6 +13,7 @@ archive_contents="$(unzip -Z1 tone_confirmation.zip)"
 grep -qx "manifest.json" <<<"${archive_contents}"
 grep -qx "brand/icon.png" <<<"${archive_contents}"
 grep -qx "brand/icon@2x.png" <<<"${archive_contents}"
+grep -qx "media/confirmation.wav" <<<"${archive_contents}"
 
 if grep -q '^tone_confirmation/' <<<"${archive_contents}"; then
   echo "Release archive must contain integration files at its root." >&2

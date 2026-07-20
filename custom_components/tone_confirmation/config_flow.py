@@ -15,9 +15,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (
-    CONF_CONFIRMATION_SCRIPT,
     CONF_TARGET_AGENT,
-    DEFAULT_CONFIRMATION_SCRIPT,
     DEFAULT_TARGET_AGENT,
     DOMAIN,
     NAME,
@@ -33,12 +31,6 @@ def _schema(values: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_TARGET_AGENT,
                 default=values.get(CONF_TARGET_AGENT, DEFAULT_TARGET_AGENT),
             ): EntitySelector(EntitySelectorConfig(domain="conversation")),
-            vol.Required(
-                CONF_CONFIRMATION_SCRIPT,
-                default=values.get(
-                    CONF_CONFIRMATION_SCRIPT, DEFAULT_CONFIRMATION_SCRIPT
-                ),
-            ): EntitySelector(EntitySelectorConfig(domain="script")),
         }
     )
 
@@ -46,7 +38,7 @@ def _schema(values: dict[str, Any] | None = None) -> vol.Schema:
 class ToneConfirmationConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a Tone Confirmation Conversation config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     @staticmethod
     @callback
@@ -80,9 +72,6 @@ class ToneConfirmationConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_TARGET_AGENT: import_data.get(
                     CONF_TARGET_AGENT, DEFAULT_TARGET_AGENT
                 ),
-                CONF_CONFIRMATION_SCRIPT: import_data.get(
-                    CONF_CONFIRMATION_SCRIPT, DEFAULT_CONFIRMATION_SCRIPT
-                ),
             },
         )
 
@@ -93,7 +82,7 @@ class OptionsFlow(OptionsFlowWithReload):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Edit the wrapped conversation agent and confirmation script."""
+        """Edit the wrapped conversation agent."""
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 

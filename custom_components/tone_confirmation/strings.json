@@ -5,14 +5,12 @@
     },
     "step": {
       "user": {
-        "description": "Choose the conversation agent to wrap and the script that plays the confirmation tone.",
+        "description": "Choose the conversation agent to wrap. The integration plays its bundled confirmation tone after successful actions.",
         "data": {
-          "target_agent": "Conversation agent",
-          "confirmation_script": "Confirmation script"
+          "target_agent": "Conversation agent"
         },
         "data_description": {
-          "target_agent": "The underlying agent that processes requests.",
-          "confirmation_script": "A script with a required satellite_id field that plays the tone."
+          "target_agent": "The underlying agent that processes requests."
         }
       }
     }
@@ -21,12 +19,10 @@
     "step": {
       "init": {
         "data": {
-          "target_agent": "Conversation agent",
-          "confirmation_script": "Confirmation script"
+          "target_agent": "Conversation agent"
         },
         "data_description": {
-          "target_agent": "The underlying agent that processes requests.",
-          "confirmation_script": "A script with a required satellite_id field that plays the tone."
+          "target_agent": "The underlying agent that processes requests."
         }
       }
     }
