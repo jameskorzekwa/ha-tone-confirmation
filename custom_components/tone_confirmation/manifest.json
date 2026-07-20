@@ -1,11 +1,11 @@
 {
   "domain": "tone_confirmation",
   "name": "Tone Confirmation Conversation",
-  "version": "1.0.0",
   "codeowners": ["@jameskorzekwa"],
   "dependencies": ["conversation"],
   "documentation": "https://github.com/jameskorzekwa/ha-tone-confirmation",
   "integration_type": "service",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/jameskorzekwa/ha-tone-confirmation/issues"
+  "issue_tracker": "https://github.com/jameskorzekwa/ha-tone-confirmation/issues",
+  "version": "1.0.0"
 }
